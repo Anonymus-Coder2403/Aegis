@@ -1,112 +1,182 @@
 # Aegis — Smart Home AI Assistant
 
-An AI Assistant for a smart home AI assistant that handles electricity bill Q&A, weather advice, and AC control via natural language.
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen)
+![LiteLLM](https://img.shields.io/badge/litellm-1.82.6-orange)
+![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-Built with Python, Gemini 2.5 Flash (via LiteLLM), ChromaDB, and FastAPI.
+Aegis is a smart home AI assistant prototype that answers electricity bill questions, gives weather advice, and controls a mock AC unit — all through natural language. It was built for a PayNearby internship assessment.
+
+Three things it does:
+
+- **Billing Librarian** — upload a PDF bill, ask questions like "When was my last payment?", get answers grounded in the actual document. Not from the LLM's memory. From the bill.
+- **Weather Advisor** — asks OpenWeatherMap, sends the structured data to Gemini, gets a conversational recommendation back.
+- **AC Control** — says "It's getting hot in here", classifies the intent, hits a FastAPI mock hardware server, confirms the action.
 
 ---
 
-## Features
+## Why Gemini instead of Ollama
 
-### Billing RAG
-- Upload a PDF electricity bill and ask grounded questions
-- Schema-first design: structured lookup first, ChromaDB semantic search as fallback
-- PDF parsed with `pdfplumber` + `PyMuPDF` into a canonical JSON schema
-- Bill chunks embedded with `sentence-transformers` (`all-MiniLM-L6-v2`) into ChromaDB
-- LiteLLM → Gemini 2.5 Flash formats charge/history answers; exact fields are deterministic
-- Supported bills: PVVNL, MSEDCL
+The assignment spec listed Ollama (Llama 3 / Mistral) as the LLM engine. We didn't use it.
 
-### Weather Advisor
-- Fetches live weather from OpenWeatherMap (or falls back to mock data)
-- Answers natural language weather questions with Gemini 2.5 Flash
+The dev machine has an RTX 3050 with 4GB VRAM. Running Llama 3 8B on that during a live demo is slow enough to be painful — 30-40s per response on quantized models. Gemini 2.5 Flash via LiteLLM gives sub-3s responses and a free API tier. Same interface, faster demo.
 
-### AC Control
-- Classifies natural language commands (`turn_on` / `turn_off` / `none`)
-- Executes against a FastAPI mock hardware server (port 8765)
-- Returns confirmation with current AC state
+If you want to run it locally with Ollama anyway, [see the Ollama setup section below](#ollama-local-alternative).
 
 ---
 
 ## Stack
 
-| Component | Technology |
+| Component | What we used |
 |---|---|
-| Language | Python 3.10+ |
 | LLM | Gemini 2.5 Flash via LiteLLM `1.82.6` |
 | Vector DB | ChromaDB (local) |
 | Embeddings | `sentence-transformers` `all-MiniLM-L6-v2` |
-| PDF Parsing | `pdfplumber` + `PyMuPDF` |
-| API Server | FastAPI + uvicorn |
-| HTTP Client | httpx |
+| PDF parsing | `pdfplumber` + `PyMuPDF` |
+| API server | FastAPI + uvicorn |
+| HTTP client | httpx |
 | UI | Streamlit (prototype) |
+| Language | Python 3.10+ |
 
-> **Security:** LiteLLM is pinned to `1.82.6`. Versions `1.82.7` and `1.82.8` are blocked.
+> LiteLLM is pinned to `1.82.6`. Versions `1.82.7` and `1.82.8` have known security issues and are blocked in this repo.
 
 ---
 
 ## Setup
 
+**Requirements:** Python 3.10+, [`uv`](https://docs.astral.sh/uv/)
+
 ```bash
+git clone https://github.com/Anonymus-Coder2403/Aegis.git
+cd Aegis
 uv sync --group dev
 ```
 
-Create a `.env` file in the project root:
+Create a `.env` file:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
-OPENWEATHERMAP_API_KEY=your_openweathermap_key_here   # optional, falls back to mock
+GEMINI_API_KEY=your_key_here
+OPENWEATHERMAP_API_KEY=your_key_here   # optional — falls back to mock data
 ```
 
 ---
 
-## Usage
+## LLM provider options
 
-### Orchestrator CLI (all features)
+### Option 1: Google AI Studio (default)
+
+Get a free API key at [aistudio.google.com](https://aistudio.google.com).
+
+```env
+GEMINI_API_KEY=your_key_here
+```
+
+The config already points to `gemini/gemini-2.5-flash`. No other changes needed.
+
+### Option 2: OpenRouter
+
+OpenRouter proxies many models including Gemini. Useful if you want to swap models without changing the key setup.
+
+```env
+OPENROUTER_API_KEY=your_key_here
+```
+
+In `src/aegis/core/config.py` and `src/aegis/billing/config.py`, update:
+
+```python
+litellm_model: str = "openrouter/google/gemini-2.5-flash"
+litellm_api_key_env: str = "OPENROUTER_API_KEY"
+litellm_base_url: str | None = "https://openrouter.ai/api/v1"
+```
+
+### Option 3: Ollama (local alternative) {#ollama-local-alternative}
+
+If your machine has 8GB+ VRAM, you can run this locally.
 
 ```bash
-uv run aegis ask "Should I carry an umbrella today?"
-uv run aegis ask "Turn on the AC"
+ollama pull llama3
+ollama serve
+```
+
+Update both config files:
+
+```python
+litellm_model: str = "ollama/llama3"
+litellm_api_key_env: str = ""          # no key needed
+litellm_base_url: str | None = "http://localhost:11434"
+```
+
+Note: response times will vary significantly depending on hardware. On machines with less than 8GB VRAM, expect 20-60s per response on Llama 3 8B.
+
+---
+
+## Running the app
+
+### Start the AC mock server (required for AC control)
+
+```bash
+uv run aegis-ac-server
+# runs on port 8765
+```
+
+### Orchestrator CLI
+
+```bash
+uv run aegis ask "Should I take an umbrella today?"
+uv run aegis ask "It's getting hot in here"
 uv run aegis ask "What was my last bill payment?" --pdf data/document_pdf.pdf
 ```
 
 ### Billing CLI
 
 ```bash
-# Inspect extracted bill fields
+# Parse and inspect canonical bill fields
 uv run aegis-billing inspect --pdf data/document_pdf.pdf --store-dir .billing_store
 
 # Ingest bill into ChromaDB
 uv run aegis-billing ingest --pdf data/document_pdf.pdf --store-dir .billing_store
 
-# Ask a billing question
-uv run aegis-billing query --question "When was my last electricity bill paid?" --pdf data/document_pdf.pdf --store-dir .billing_store
+# Ask a grounded question
+uv run aegis-billing query \
+  --question "When was my last electricity bill paid, and what was the amount?" \
+  --pdf data/document_pdf.pdf \
+  --store-dir .billing_store
 ```
 
-### AC Mock Server
-
-```bash
-uv run aegis-ac-server   # starts on port 8765
-```
-
-### Streamlit UI
+### Streamlit UI (all three features in one place)
 
 ```bash
 uv run aegis-ui
 ```
-
-Three tabs: Billing / Weather Advisor / AC Control
 
 ---
 
 ## Tests
 
 ```bash
-uv run pytest tests/ -v        # 88 tests
+uv run pytest tests/ -v
+# 88 tests, ~12s
 ```
 
 ---
 
-## Project Structure
+## How the billing RAG works
+
+Most RAG pipelines chunk the raw PDF text and retrieve by similarity. That breaks on electricity bills — the bill has multiple similar-looking amounts on the same page (`current_payable`, `total_payable_rounded`, `payable_by_due_date`) and the labels often get separated from values during extraction.
+
+Aegis uses a schema-first approach instead:
+
+1. Parse the PDF into a canonical JSON schema with named fields
+2. Chunk that schema into typed segments (summary, amounts, charges, history, evidence snippets) and store in ChromaDB
+3. For exact questions ("what was my last payment?"), look up the field directly — no semantic search involved
+4. For charge/history questions, use ChromaDB retrieval filtered by field type, then pass to Gemini for formatting
+5. If nothing matches, say so — no hallucinated answers
+
+The LLM never sees raw PDF text. It only sees structured data that Python already extracted and verified.
+
+---
+
+## Project structure
 
 ```
 src/aegis/
@@ -121,8 +191,15 @@ src/aegis/
 
 ---
 
-## Sample Bills
+## Sample bills
 
-Two reference bills are included in `data/`:
-- `document_pdf.pdf` — PVVNL electricity bill
+Two reference bills are in `data/`:
+
+- `document_pdf.pdf` — PVVNL electricity bill (the one the RAG is tested against)
 - `water-bill-pdf_compress.pdf` — water bill sample
+
+---
+
+## Demo log
+
+See [`DEMO_RUN_LOG.txt`](DEMO_RUN_LOG.txt) for a full run of all three tasks with actual output.
