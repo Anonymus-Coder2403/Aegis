@@ -17,9 +17,9 @@ Three things it does:
 
 ## Why Gemini instead of Ollama
 
-The assignment spec listed Ollama as the LLM engine. We didn't use it.
+The aPRD spec listed Ollama as the LLM engine. I didn't use it.
 
-The dev machine has an RTX 3050 with 4GB VRAM. Running Llama 3 8B on that during a live demo is slow enough to be painful 30-40s per response on quantized models. Gemini 2.5 Flash via LiteLLM gives sub-3s responses and a free API tier. Same interface, faster demo.
+The dev machine has an RTX 3050 with 4GB VRAM. Running Llama 3 8B on that during a live demo is slow enough to be latency issue 30-40s per response on quantized models. Gemini 2.5 Flash via LiteLLM gives sub-3s responses and a free API tier. Same interface, faster demo.
 
 If you want to run it locally with Ollama anyway, [see the Ollama setup section below](#ollama-local-alternative).
 
