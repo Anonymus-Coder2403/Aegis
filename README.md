@@ -5,7 +5,7 @@
 ![LiteLLM](https://img.shields.io/badge/litellm-1.82.6-orange)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
-Aegis is a smart home AI assistant prototype that answers electricity bill questions, gives weather advice, and controls a mock AC unit — all through natural language. It was built for a PayNearby internship assessment.
+Aegis is a smart home AI assistant that answers electricity bill questions, gives weather advice, and controls a mock AC unit — all through natural language.
 
 Three things it does:
 
