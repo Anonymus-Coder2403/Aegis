@@ -1,6 +1,6 @@
 # Aegis — Smart Home AI Assistant
 
-An internship prototype for a smart home AI assistant that handles electricity bill Q&A, weather advice, and AC control via natural language.
+An AI Assistant for a smart home AI assistant that handles electricity bill Q&A, weather advice, and AC control via natural language.
 
 Built with Python, Gemini 2.5 Flash (via LiteLLM), ChromaDB, and FastAPI.
 
