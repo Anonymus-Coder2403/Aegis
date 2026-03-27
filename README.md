@@ -162,7 +162,7 @@ uv run pytest tests/ -v
 
 ## How the billing RAG works
 
-Most RAG pipelines chunk the raw PDF text and retrieve by similarity. That breaks on electricity bills — the bill has multiple similar-looking amounts on the same page (`current_payable`, `total_payable_rounded`, `payable_by_due_date`) and the labels often get separated from values during extraction.
+Most RAG pipelines chunk the raw PDF text and retrieve by similarity. That breaks on electricity bills the bill has multiple similar-looking amounts on the same page (`current_payable`, `total_payable_rounded`, `payable_by_due_date`) and the labels often get separated from values during extraction.
 
 Aegis uses a schema-first approach instead:
 
