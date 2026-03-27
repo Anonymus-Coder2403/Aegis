@@ -1,0 +1,206 @@
+============================================
+AEGIS SMART HOME AI ASSISTANT — DEMO RUN LOG
+============================================
+
+Date: Fri Mar 27 20:13:07 IST 2026
+Python: Python 3.12.7
+Platform: Windows 11 Pro
+
+============================================
+TASK A: WEATHER ADVISOR
+============================================
+
+> uv run aegis ask "Should I take an umbrella today?"
+
+It's 32.4°C and haze in Delhi. Humidity is 58%. No umbrella needed.
+
+============================================
+TASK B: AC CONTROL (MCP Integration)
+============================================
+
+--- Starting AC mock server on port 8765 ---
+> uv run aegis-ac-server &
+
+--- Verifying server is running ---
+> curl http://localhost:8765/ac/status
+{"ac_on":false}
+
+--- User says: "It's getting a bit hot in here" ---
+> uv run aegis ask "It's getting a bit hot in here"
+
+AC is now on.
+
+> curl http://localhost:8765/ac/status
+{"ac_on":true}
+
+--- User says: "Turn off the AC please" ---
+> uv run aegis ask "Turn off the AC please"
+
+AC is now off.
+
+> curl http://localhost:8765/ac/status
+{"ac_on":false}
+
+============================================
+TASK C: BILLING LIBRARIAN (RAG Engine)
+============================================
+
+--- Step 1: Inspect bill to show canonical parsing ---
+> uv run aegis-billing inspect --pdf data/document_pdf.pdf --store-dir .billing_store
+
+{
+  "source_doc_id": "document_pdf",
+  "bill_id": "132189891047",
+  "account_no": "1321865000",
+  "bill_month": "JAN-2020",
+  "bill_date": "17-JAN-2020",
+  "due_date": "24-JAN-2020",
+  "disconnection_date": "31-JAN-2020",
+  "amounts": {
+    "current_payable": 2837.58,
+    "total_payable_rounded": 2837.0,
+    "payable_by_due_date": 2811.0,
+    "last_payment_amount": 2119.0,
+    "last_payment_date": "10-JAN-2020",
+    "last_receipt_no": "132186537483",
+    "arrears_total": -0.21
+  },
+  "charges": {
+    "electricity_charges": 2238.5,
+    "fixed_demand_charges": 440.0,
+    "current_bill_lpsc": 25.15,
+    "electricity_duty": 133.93
+  },
+  "consumption": {
+    "billed_units_kwh": 379.0,
+    "previous_read": 12021.0,
+    "current_read": 12400.0
+  },
+  "history": [
+    {"month": "DEC-2019", "units": 272.0, "demand": 4.0, "status": "OK"},
+    {"month": "NOV-2019", "units": 202.0, "demand": 4.0, "status": "OK"},
+    {"month": "OCT-2019", "units": 504.0, "demand": 3.0, "status": "OK"},
+    {"month": "SEP-2019", "units": 553.0, "demand": 4.0, "status": "OK"},
+    {"month": "AUG-2019", "units": 652.0, "demand": 3.2, "status": "OK"},
+    {"month": "JUL-2019", "units": 785.0, "demand": 3.74, "status": "OK"}
+  ],
+  "evidence_map": {
+    "amounts.last_payment_amount": "Payment Details 2119.00",
+    "amounts.last_payment_date": "Receipt Date 10-JAN-2020",
+    "amounts.last_receipt_no": "Receipt No 132186537483",
+    "amounts.arrears_total": "Total -0.21",
+    "amounts.current_payable": "Current Payable Amount(`) 2837.58",
+    "charges.electricity_charges": "Electricity Charges 2238.50",
+    "charges.fixed_demand_charges": "Fixed/Demand Charges 440.00",
+    "charges.current_bill_lpsc": "Current Bill LPSC 25.15",
+    "charges.electricity_duty": "Electricity Duty 133.93"
+  }
+}
+
+--- Step 2: Query the bill with a grounded question ---
+> uv run aegis-billing query --question "When was my last electricity bill paid, and what was the amount?" --pdf data/document_pdf.pdf --store-dir .billing_store
+
+Your last payment was made on 10-JAN-2020 for 2119.0.
+amounts.last_payment_date: 10-JAN-2020
+amounts.last_payment_amount: 2119.0
+
+============================================
+TEST SUITE — 88 TESTS PASSING
+============================================
+
+> uv run pytest tests/ -v
+
+tests/test_ac_classifier.py::test_keyword_turn_on PASSED
+tests/test_ac_classifier.py::test_keyword_turn_off PASSED
+tests/test_ac_classifier.py::test_keyword_none PASSED
+tests/test_ac_classifier.py::test_fallback_when_no_api_key PASSED
+tests/test_ac_classifier.py::test_litellm_returns_turn_on PASSED
+tests/test_ac_classifier.py::test_litellm_returns_turn_off PASSED
+tests/test_ac_classifier.py::test_malformed_json_falls_back_to_keyword PASSED
+tests/test_ac_classifier.py::test_invalid_intent_value_falls_back PASSED
+tests/test_ac_classifier.py::test_litellm_exception_falls_back_to_keyword PASSED
+tests/test_ac_client.py::test_intent_none_returns_no_action PASSED
+tests/test_ac_client.py::test_turn_on_calls_correct_endpoint PASSED
+tests/test_ac_client.py::test_turn_off_calls_correct_endpoint PASSED
+tests/test_ac_client.py::test_server_connection_error_returns_graceful_message PASSED
+tests/test_ac_client.py::test_result_is_frozen_dataclass PASSED
+tests/test_answerer_grounding.py::test_exact_lookup_answer_uses_structured_fields PASSED
+tests/test_answerer_grounding.py::test_charge_lookup_uses_deterministic_fallback_if_litellm_disabled PASSED
+tests/test_answerer_grounding.py::test_document_fallback_returns_not_found_when_no_snippets PASSED
+tests/test_answerer_grounding.py::test_insufficient_context_returns_clarification PASSED
+tests/test_answerer_grounding.py::test_exact_lookup_with_missing_field_returns_not_found PASSED
+tests/test_answerer_grounding.py::test_answer_billing_question_requires_explicit_pdf_path PASSED
+tests/test_bill_schema_mapping.py::test_maps_key_bill_fields_from_extracted_content PASSED
+tests/test_bill_schema_mapping.py::test_keeps_distinct_payable_fields_separate PASSED
+tests/test_bill_schema_mapping.py::test_maps_last_payment_fields_without_confusing_them_with_payable_fields PASSED
+tests/test_bill_schema_mapping.py::test_preserves_raw_text_and_evidence_map PASSED
+tests/test_bill_schema_mapping.py::test_falls_back_to_raw_text_when_table_rows_are_not_structured PASSED
+tests/test_bill_schema_mapping.py::test_handles_multiline_realistic_payment_and_payable_sections PASSED
+tests/test_bill_schema_mapping.py::test_parses_realistic_bill_month_and_arrears_details PASSED
+tests/test_bill_schema_mapping.py::test_parses_charge_breakdown_from_bill_details_section PASSED
+tests/test_bill_schema_mapping.py::test_parses_consumption_and_history_sections PASSED
+tests/test_bill_schema_mapping.py::test_current_payable_evidence_uses_final_payable_value_not_first_charge PASSED
+tests/test_bill_schema_mapping.py::test_maps_evidence_for_receipt_and_arrears_fields PASSED
+tests/test_bill_schema_mapping.py::test_maps_evidence_for_selected_charge_fields PASSED
+tests/test_billing_cli_integration.py::test_inspect_command_prints_canonical_bill_json PASSED
+tests/test_billing_cli_integration.py::test_ingest_command_persists_canonical_bill_artifact PASSED
+tests/test_billing_cli_integration.py::test_query_command_returns_grounded_last_payment_answer PASSED
+tests/test_billing_cli_integration.py::test_query_command_requires_pdf_argument PASSED
+tests/test_embeddings.py::test_embed_text_uses_sentence_transformer_and_returns_float_list PASSED
+tests/test_embeddings.py::test_embed_text_loads_model_lazily PASSED
+tests/test_embeddings.py::test_embed_text_reuses_cached_model_instance PASSED
+tests/test_embeddings.py::test_embed_text_raises_runtime_error_on_model_load_failure PASSED
+tests/test_llm_formatter.py::test_exact_lookup_with_missing_values_returns_not_found PASSED
+tests/test_llm_formatter.py::test_litellm_exception_falls_back_to_deterministic PASSED
+tests/test_llm_formatter.py::test_exact_lookup_bypasses_litellm_even_when_enabled PASSED
+tests/test_llm_formatter.py::test_charge_lookup_reaches_litellm_when_enabled PASSED
+tests/test_llm_formatter.py::test_charge_lookup_deterministic_snippets_appended PASSED
+tests/test_normalize.py::test_parse_amount_strips_currency_and_commas PASSED
+tests/test_normalize.py::test_parse_amount_returns_none_for_invalid_values PASSED
+tests/test_normalize.py::test_parse_date_normalizes_supported_input PASSED
+tests/test_normalize.py::test_clean_cell_trims_whitespace_and_empty_values PASSED
+tests/test_orchestrator.py::test_weather_keyword_matched PASSED
+tests/test_orchestrator.py::test_ac_keyword_matched PASSED
+tests/test_orchestrator.py::test_billing_keyword_matched PASSED
+tests/test_orchestrator.py::test_unrelated_keyword_not_matched PASSED
+tests/test_orchestrator.py::test_routes_to_weather PASSED
+tests/test_orchestrator.py::test_routes_to_ac_no_server PASSED
+tests/test_orchestrator.py::test_billing_requires_pdf_path PASSED
+tests/test_orchestrator.py::test_unknown_input_returns_helpful_message PASSED
+tests/test_query_classifier.py::test_classifies_last_payment_question_as_exact_field_lookup PASSED
+tests/test_query_classifier.py::test_classifies_due_date_question PASSED
+tests/test_query_classifier.py::test_classifies_rounded_payable_question PASSED
+tests/test_query_classifier.py::test_falls_back_for_unmapped_question PASSED
+tests/test_query_classifier.py::test_classifies_charge_breakdown_question PASSED
+tests/test_query_classifier.py::test_classifies_history_question PASSED
+tests/test_query_classifier.py::test_classifies_insufficient_context_for_short_question PASSED
+tests/test_retriever_logic.py::test_lookup_exact_fields_returns_requested_paths PASSED
+tests/test_retriever_logic.py::test_lookup_exact_fields_returns_none_for_missing_paths PASSED
+tests/test_retriever_logic.py::test_retrieve_charge_snippets_applies_source_doc_filter PASSED
+tests/test_retriever_logic.py::test_retrieve_document_snippets_returns_empty_on_query_error PASSED
+tests/test_retriever_logic.py::test_retrieve_document_snippets_logs_query_error PASSED
+tests/test_retriever_logic.py::test_retrieve_document_snippets_returns_multiple_chunks PASSED
+tests/test_retriever_logic.py::test_retrieve_document_snippets_uses_local_query_embeddings PASSED
+tests/test_retriever_logic.py::test_build_field_chunks_produces_expected_chunk_types PASSED
+tests/test_streamlit_app.py::test_save_uploaded_pdf_persists_bytes PASSED
+tests/test_streamlit_app.py::test_save_uploaded_pdf_enforces_pdf_suffix PASSED
+tests/test_weather_advisor.py::test_deterministic_no_rain PASSED
+tests/test_weather_advisor.py::test_deterministic_with_rain PASSED
+tests/test_weather_advisor.py::test_fallback_when_no_api_key PASSED
+tests/test_weather_advisor.py::test_litellm_called_with_api_key PASSED
+tests/test_weather_advisor.py::test_litellm_failure_falls_back_to_deterministic PASSED
+tests/test_weather_advisor.py::test_recommendation_does_not_expose_raw_numbers_alone PASSED
+tests/test_weather_fetcher.py::test_parse_owm_basic PASSED
+tests/test_weather_fetcher.py::test_parse_owm_no_rain_key PASSED
+tests/test_weather_fetcher.py::test_load_mock_uses_requested_city PASSED
+tests/test_weather_fetcher.py::test_fallback_when_no_api_key PASSED
+tests/test_weather_fetcher.py::test_fallback_when_http_raises PASSED
+tests/test_weather_fetcher.py::test_fallback_on_http_error_status PASSED
+tests/test_weather_fetcher.py::test_live_api_parses_correctly PASSED
+tests/test_weather_fetcher.py::test_live_api_sends_correct_params PASSED
+
+============================= 88 passed in 12.07s =============================
+
+============================================
+END OF DEMO LOG
+============================================
