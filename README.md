@@ -1,131 +1,128 @@
-# Aegis Billing RAG
+# Aegis — Smart Home AI Assistant
 
-This repository currently contains the billing RAG slice for Aegis Smart Home AI Assistant.
+An internship prototype for a smart home AI assistant that handles electricity bill Q&A, weather advice, and AC control via natural language.
 
-The implemented path is schema-first:
-- PDF content is extracted with `pdfplumber` and `PyMuPDF`
-- bill data is normalized into a canonical JSON shape
-- canonical data is persisted locally
-- Chroma collections are populated for bill fields, charges, and history
-- embeddings are generated with `sentence-transformers` using `all-MiniLM-L6-v2`
+Built with Python, Gemini 2.5 Flash (via LiteLLM), ChromaDB, and FastAPI.
 
-## Security Pin
+---
 
-LiteLLM is security-pinned to `1.82.6` in this repo.
-Blocked compromised versions are `1.82.7` and `1.82.8`.
+## Features
 
-The weather and AC-control parts described in the project handoff docs are not implemented in this README yet. This document only covers the working billing slice.
+### Billing RAG
+- Upload a PDF electricity bill and ask grounded questions
+- Schema-first design: structured lookup first, ChromaDB semantic search as fallback
+- PDF parsed with `pdfplumber` + `PyMuPDF` into a canonical JSON schema
+- Bill chunks embedded with `sentence-transformers` (`all-MiniLM-L6-v2`) into ChromaDB
+- LiteLLM → Gemini 2.5 Flash formats charge/history answers; exact fields are deterministic
+- Supported bills: PVVNL, MSEDCL
 
-## Requirements
+### Weather Advisor
+- Fetches live weather from OpenWeatherMap (or falls back to mock data)
+- Answers natural language weather questions with Gemini 2.5 Flash
 
-- Python `3.10+`
-- `uv`
+### AC Control
+- Classifies natural language commands (`turn_on` / `turn_off` / `none`)
+- Executes against a FastAPI mock hardware server (port 8765)
+- Returns confirmation with current AC state
+
+---
+
+## Stack
+
+| Component | Technology |
+|---|---|
+| Language | Python 3.10+ |
+| LLM | Gemini 2.5 Flash via LiteLLM `1.82.6` |
+| Vector DB | ChromaDB (local) |
+| Embeddings | `sentence-transformers` `all-MiniLM-L6-v2` |
+| PDF Parsing | `pdfplumber` + `PyMuPDF` |
+| API Server | FastAPI + uvicorn |
+| HTTP Client | httpx |
+| UI | Streamlit (prototype) |
+
+> **Security:** LiteLLM is pinned to `1.82.6`. Versions `1.82.7` and `1.82.8` are blocked.
+
+---
 
 ## Setup
 
-Create the project environment and install runtime + dev dependencies:
-
-```powershell
+```bash
 uv sync --group dev
 ```
 
-This recreates the local `.venv` when needed. If `.venv` was removed during cleanup, running the command again is the expected way to restore it.
+Create a `.env` file in the project root:
 
-## Billing CLI
-
-The project exposes one CLI:
-
-```powershell
-uv run --no-sync aegis-billing-rag --help
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENWEATHERMAP_API_KEY=your_openweathermap_key_here   # optional, falls back to mock
 ```
 
-Available commands:
-- `inspect`
-- `ingest`
-- `query`
+---
 
-All commands accept `--store-dir`. The default is `.billing_store`.
+## Usage
 
-## Streamlit UI (Billing Only)
+### Orchestrator CLI (all features)
 
-Run the Streamlit app:
-
-```powershell
-uv run --no-sync streamlit run src/aegis_billing_rag/billing/streamlit_app.py
+```bash
+uv run aegis ask "Should I carry an umbrella today?"
+uv run aegis ask "Turn on the AC"
+uv run aegis ask "What was my last bill payment?" --pdf data/document_pdf.pdf
 ```
 
-In the UI:
-- upload one bill PDF
-- use **Inspect Bill** to preview canonical extraction
-- ask questions with **Ask Question**
+### Billing CLI
 
-## Example Commands
+```bash
+# Inspect extracted bill fields
+uv run aegis-billing inspect --pdf data/document_pdf.pdf --store-dir .billing_store
 
-Inspect the representative sample bill and print canonical JSON:
+# Ingest bill into ChromaDB
+uv run aegis-billing ingest --pdf data/document_pdf.pdf --store-dir .billing_store
 
-```powershell
-uv run --no-sync aegis-billing-rag inspect --pdf document_pdf.pdf --store-dir .billing_store
+# Ask a billing question
+uv run aegis-billing query --question "When was my last electricity bill paid?" --pdf data/document_pdf.pdf --store-dir .billing_store
 ```
 
-Ingest the sample bill into local canonical storage + Chroma:
+### AC Mock Server
 
-```powershell
-uv run --no-sync aegis-billing-rag ingest --pdf document_pdf.pdf --store-dir .billing_store
+```bash
+uv run aegis-ac-server   # starts on port 8765
 ```
 
-Query the ingested bill:
+### Streamlit UI
 
-```powershell
-uv run --no-sync aegis-billing-rag query --question "When was my last electricity bill paid, and what was the amount?" --pdf document_pdf.pdf --store-dir .billing_store
+```bash
+uv run aegis-ui
 ```
 
-`query` is single-bill only and always requires `--pdf`.
+Three tabs: Billing / Weather Advisor / AC Control
+
+---
 
 ## Tests
 
-Run the full billing test suite:
-
-```powershell
-uv run --group dev pytest -q
+```bash
+uv run pytest tests/ -v        # 88 tests
 ```
 
-Run answer-routing and formatter grounding tests:
+---
 
-```powershell
-uv run --group dev pytest tests/test_answerer_grounding.py tests/test_llm_formatter.py -q
+## Project Structure
+
+```
+src/aegis/
+├── core/           config.py, orchestrator.py
+├── billing/        answerer, cli, config, llm_formatter, query_classifier, types
+│   ├── parser/     extractors, normalize, pvvnl_parser, msedcl_parser
+│   └── rag/        embeddings, retriever, store
+├── weather/        advisor, fetcher
+├── ac_control/     classifier, client, server
+└── ui/             streamlit_app
 ```
 
-Run only the embedding wrapper tests:
+---
 
-```powershell
-uv run --group dev pytest tests/test_embeddings.py -q
-```
+## Sample Bills
 
-## Current Embedding Behavior
-
-The billing RAG embedder is implemented in [src/aegis_billing_rag/billing/rag/embeddings.py](/d:/Aegis/src/aegis_billing_rag/billing/rag/embeddings.py).
-
-Current behavior:
-- lazy-loads `sentence-transformers/all-MiniLM-L6-v2`
-- caches the model instance per process
-- returns embeddings as `list[float]`
-- raises `RuntimeError` if model initialization fails
-
-The first embedding call may download model files from Hugging Face if they are not already cached locally.
-
-## Important Files
-
-- [pyproject.toml](/d:/Aegis/pyproject.toml)
-- [src/aegis_billing_rag/billing/cli.py](/d:/Aegis/src/aegis_billing_rag/billing/cli.py)
-- [src/aegis_billing_rag/billing/answerer.py](/d:/Aegis/src/aegis_billing_rag/billing/answerer.py)
-- [src/aegis_billing_rag/billing/rag/store.py](/d:/Aegis/src/aegis_billing_rag/billing/rag/store.py)
-- [src/aegis_billing_rag/billing/rag/retriever.py](/d:/Aegis/src/aegis_billing_rag/billing/rag/retriever.py)
-- [src/aegis_billing_rag/billing/rag/embeddings.py](/d:/Aegis/src/aegis_billing_rag/billing/rag/embeddings.py)
-- [tests/test_billing_cli_integration.py](/d:/Aegis/tests/test_billing_cli_integration.py)
-- [tests/test_embeddings.py](/d:/Aegis/tests/test_embeddings.py)
-
-## Notes
-
-- `.billing_store/`, `.venv/`, `.pytest_cache/`, and `__pycache__/` are local artifacts and are ignored.
-- The representative sample bill is [document_pdf.pdf](/d:/Aegis/document_pdf.pdf).
-- The locked architecture and project handoff context are documented in [ARCHITECTURE_LOCK.md](/d:/Aegis/ARCHITECTURE_LOCK.md) and [PROJECT_CONTEXT_HANDOFF.md](/d:/Aegis/PROJECT_CONTEXT_HANDOFF.md).
+Two reference bills are included in `data/`:
+- `document_pdf.pdf` — PVVNL electricity bill
+- `water-bill-pdf_compress.pdf` — water bill sample
