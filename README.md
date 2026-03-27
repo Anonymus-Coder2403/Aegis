@@ -1,4 +1,4 @@
-# Aegis — Smart Home AI Assistant
+# Aegis a Smart Home AI Assistant
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen)
