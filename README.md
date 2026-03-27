@@ -1,7 +1,6 @@
 # Aegis a Smart Home AI Assistant
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
-![Tests](https://img.shields.io/badge/tests-88%20passing-brightgreen)
 ![LiteLLM](https://img.shields.io/badge/litellm-1.82.6-orange)
 ![License](https://img.shields.io/badge/license-MIT-lightgrey)
 
