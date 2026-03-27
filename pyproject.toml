@@ -1,0 +1,37 @@
+[project]
+name = "aegis-billing-rag"
+version = "0.1.0"
+description = "Billing and RAG slice for Aegis smart home assistant"
+readme = "README.md"
+authors = [
+    { name = "Yash Kumar", email = "yashcoder9187@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "chromadb",
+    "fastapi",
+    "httpx",
+    "litellm==1.82.6",
+    "pymupdf",
+    "pdfplumber",
+    "python-dotenv",
+    "sentence-transformers",
+    "streamlit",
+    "easyocr>=1.7.2",
+    "uvicorn",
+]
+
+[project.scripts]
+aegis-billing = "aegis.billing.cli:main"
+aegis-ac-server = "aegis.ac_control.server:run_server"
+aegis = "aegis.core.orchestrator:main_cli"
+aegis-ui = "aegis.ui.streamlit_app:main"
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.17,<0.10.0"]
+build-backend = "uv_build"

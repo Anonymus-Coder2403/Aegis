@@ -1,0 +1,33 @@
+{
+  "name": "Delhi",
+  "main": {
+    "temp": 32.4,
+    "feels_like": 35.1,
+    "humidity": 58
+  },
+  "weather": [
+    {
+      "id": 721,
+      "main": "Haze",
+      "description": "haze",
+      "icon": "50d"
+    }
+  ],
+  "rain": {
+    "3h": 0.0
+  },
+  "wind": {
+    "speed": 3.1,
+    "deg": 200
+  },
+  "visibility": 4000,
+  "dt": 1711526400,
+  "sys": {
+    "country": "IN",
+    "sunrise": 1711499400,
+    "sunset": 1711544100
+  },
+  "timezone": 19800,
+  "id": 1273294,
+  "cod": 200
+}

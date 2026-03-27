@@ -1,0 +1,52 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+
+# Secrets
+.env
+
+# Data (generated at runtime)
+data/vector_store/
+data/processed/
+data/embeddings/
+.billing_store/
+
+# Logs
+logs/*.log
+
+# Context/prompt docs (not source code)
+*.md
+!README.md
+*.xml
+
+# Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+
+# PDFs — exclude all except sample reference bills in data/
+*.pdf
+!data/document_pdf.pdf
+!data/water-bill-pdf_compress.pdf
+
+# Temp files
+tmp_*
+
+# OS
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# DevContext
+.devctx/
+
+# UV
+uv.lock
