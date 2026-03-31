@@ -3,7 +3,20 @@
 **Date**: 2026-03-29  
 **Goal**: Advanced RAG architecture for 10,000+ page documents  
 **Timeline**: 7 days  
-**Status**: Approved - Ready for Implementation
+**Status**: In Progress - Core Components Implemented
+
+---
+
+## Current Implementation Note (2026-03-31)
+
+**MVP Approach**: The current implementation uses an **in-memory architecture** for rapid development and testing. This allows the system to run without external dependencies:
+
+- **No PostgreSQL required** - Documents stored in `InMemoryRAG` (Dict + List)
+- **No Redis required** - In-memory indexes rebuilt on each document add
+- **No OpenSearch required** - Custom BM25 + Vector implementation (OpenSearch client classes exist but not wired)
+- **Works offline** - Requires only LLM API key (Groq or Gemini) or runs in mock mode
+
+**To Enable Production Services**: The codebase contains OpenSearch, PostgreSQL, and Redis client implementations that can be enabled by configuring the appropriate settings and connecting to external services.
 
 ---
 
@@ -110,6 +123,7 @@ This plan outlines the implementation of a production-ready advanced RAG archite
 | **Docker** | Yes | Full production setup |
 | **Agentic Features** | Yes | Query rewriting + document grading |
 | **Observability** | Langfuse | Full tracing |
+| **LLM Provider** | Gemini + Groq | Gemini via google-genai, Groq via groq SDK with openai/gpt-oss-120b |
 
 ---
 
@@ -130,6 +144,18 @@ The architecture is designed to be AWS-compatible for future deployment:
 ---
 
 ## Day-by-Day Implementation Plan
+
+### Implementation Status
+
+| Day | Phase | Status | Notes |
+|-----|-------|--------|-------|
+| Day 1 | Infrastructure & FastAPI Setup | ✅ Complete | FastAPI app with all endpoints |
+| Day 2 | Database & OpenSearch Integration | ⚠️ Partial | In-memory (OpenSearch ready) |
+| Day 3 | Advanced Chunking & File Storage | ✅ Complete | All chunkers + storage clients |
+| Day 4 | Hybrid Search Implementation | ✅ Complete | BM25 + Vector + RRF |
+| Day 5 | Caching Layer & Async Tasks | ❌ Not Started | Redis integration pending |
+| Day 6 | Agentic RAG (LangGraph) | ❌ Not Started | Future enhancement |
+| Day 7 | Observability & Testing | ❌ Not Started | Langfuse pending |
 
 ### Day 1: Infrastructure & FastAPI Setup
 
@@ -347,17 +373,18 @@ services:
 
 ## Expected Outcomes
 
-| Metric | Current | After Implementation |
-|--------|---------|---------------------|
-| **Max document size** | ~100 pages | 10,000+ pages |
-| **Search quality** | Basic vector | Hybrid (BM25 + Vector) |
-| **Response time** | 5-10s | <3s (with cache) |
-| **API costs** | Full price | 50%+ reduction (cache) |
-| **Observability** | None | Full tracing (Langfuse) |
-| **Rate limiting** | None | Built-in |
-| **Async processing** | None | Celery tasks |
-| **File storage** | Local | S3-compatible |
-| **Cloud-ready** | No | Yes |
+| Metric | V1 (frozen) | V2 MVP (Current) | After Full Implementation |
+|--------|-------------|------------------|-------------------------|
+| **Max document size** | ~100 pages | 10,000+ pages | 10,000+ pages |
+| **Search quality** | ChromaDB vector | Hybrid (BM25 + Vector) | Hybrid (BM25 + Vector) |
+| **Response time** | 5-10s | <3s | <3s (with cache) |
+| **LLM Provider** | LiteLLM | Gemini + Groq | Gemini + Groq |
+| **API costs** | Full price | Pay per call | 50%+ reduction (cache) |
+| **Observability** | None | None | Full tracing (Langfuse) |
+| **Rate limiting** | None | None | Built-in |
+| **Async processing** | None | None | Celery tasks |
+| **File storage** | Local | Local + S3 ready | S3-compatible |
+| **Cloud-ready** | No | Partial | Yes |
 
 ---
 

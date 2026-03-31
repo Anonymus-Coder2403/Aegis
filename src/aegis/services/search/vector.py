@@ -18,25 +18,45 @@ class EmbeddingGenerator:
         self.model_name = model_name
         self.dimension = dimension
         self._model = None
+        self._model_load_error = None
 
     def _get_model(self):
         if self._model is not None:
             return self._model
 
-        from sentence_transformers import SentenceTransformer
+        if self._model_load_error:
+            return None
 
-        self._model = SentenceTransformer(self.model_name, local_files_only=True)
-        return self._model
+        try:
+            from sentence_transformers import SentenceTransformer
+
+            self._model = SentenceTransformer(self.model_name)
+            return self._model
+        except Exception as e:
+            self._model_load_error = str(e)
+            print(f"Warning: Could not load embedding model '{self.model_name}': {e}")
+            print("Falling back to dummy embeddings for vector search")
+            return None
 
     def encode(self, texts: list[str]) -> list[np.ndarray]:
-        try:
-            model = self._get_model()
-            embeddings = model.encode(texts, normalize_embeddings=True)
-            return [emb for emb in embeddings]
-        except Exception:
-            return [self._dummy_encode(text) for text in texts]
+        model = self._get_model()
+        if model is not None:
+            try:
+                embeddings = model.encode(texts, normalize_embeddings=True)
+                return [emb for emb in embeddings]
+            except Exception as e:
+                print(f"Warning: Encoding failed: {e}")
+
+        return [self._dummy_encode(text) for text in texts]
 
     def encode_single(self, text: str) -> np.ndarray:
+        model = self._get_model()
+        if model is not None:
+            try:
+                embedding = model.encode([text], normalize_embeddings=True)
+                return embedding[0]
+            except Exception:
+                pass
         return self._dummy_encode(text)
 
     def _dummy_encode(self, text: str) -> np.ndarray:

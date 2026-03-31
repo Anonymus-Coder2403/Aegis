@@ -165,14 +165,65 @@ All three features implemented and tested (88 tests passing). Single unified `ae
 | **Hybrid Search** | OpenSearch | BM25 + kNN native, RRF fusion |
 | **Metadata Storage** | PostgreSQL | Relational metadata only — no pgvector |
 | **Embeddings** | BGE-M3 (self-hosted) | MIT, 1024 dims, sparse+dense in one pass |
-| **LLM Generation** | Gemini 2.5 Flash | Cost, free tier, temp=0 |
-| **LLM SDK** | `google-genai` direct | LiteLLM dropped (supply chain risk, lossy translation) |
+| **LLM Generation** | Gemini 2.5 Flash + Groq | Cost, free tier, fast inference |
+| **LLM SDK** | `google-genai` + `groq` direct | LiteLLM dropped (supply chain risk, lossy translation) |
 | **Caching** | Redis | 50%+ API cost reduction |
 | **Async Tasks** | Celery + Redis | PDF processing, embeddings |
 | **File Storage** | S3-compatible | Cloud-ready design |
 | **Docker** | Yes | Full production setup |
 | **Agentic Features** | LangGraph | Query rewriting + document grading |
 | **Observability** | Langfuse | Full tracing |
+
+### V2 Current Implementation Status (2026-03-31)
+
+| Component | Locked Decision | Current Implementation |
+|-----------|-----------------|------------------------|
+| LLM SDK | google-genai direct | google-genai + **groq SDK** |
+| Search Engine | OpenSearch | **In-memory BM25 + Vector** (OpenSearch client exists but not wired) |
+| Database | PostgreSQL | **None (in-memory)** — ready for future |
+| Embeddings | BGE-M3 | BGE-M3 with graceful fallback to dummy vectors |
+| Storage | S3-compatible | LocalStorageClient + S3Client ✅ |
+| Caching | Redis | Not yet implemented |
+| Async Tasks | Celery | Not yet implemented |
+| Agentic | LangGraph | Not yet implemented |
+| Observability | Langfuse | Not yet implemented |
+
+### Local-Only MVP Mode
+
+Current implementation runs **fully local without external dependencies**:
+- No PostgreSQL required
+- No Redis required
+- No OpenSearch required
+- Works with Groq API key, Gemini API key, or mock mode
+
+This enables rapid development and testing. Cloud components remain as future goals when scaling to production.
+
+### Configuration
+
+```env
+# Groq (default, faster inference)
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_key
+GROQ_MODEL=openai/gpt-oss-120b
+
+# Or Gemini
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_key
+GEMINI_MODEL=gemini-2.0-flash
+```
+
+### Implemented API Endpoints
+
+- `GET /health` - Health check with LLM provider info
+- `GET /` - Root info
+- `POST /upload` - Upload document with chunking
+- `GET /test-documents` - List test documents
+- `POST /test-documents/{filename}/upload` - Upload test document
+- `GET /documents` - List all documents
+- `GET /documents/{doc_id}` - Get specific document
+- `DELETE /documents/{doc_id}` - Delete document
+- `POST /query` - Full RAG query (search + LLM)
+- `GET /search` - Search only (no LLM)
 
 ### Cloud Deployment Readiness (AWS)
 

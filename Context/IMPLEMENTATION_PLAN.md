@@ -21,6 +21,20 @@
 
 ---
 
+## Implementation Status (2026-03-31)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **Day 1: Infrastructure & FastAPI Setup** | ✅ Complete | FastAPI app with all endpoints, in-memory storage |
+| **Day 2: Database & OpenSearch Integration** | ⚠️ Partial | In-memory implementation (OpenSearch client ready) |
+| **Day 3: Advanced Chunking & File Storage** | ✅ Complete | PDF, recursive, section chunkers, storage clients |
+| **Day 4: Hybrid Search Implementation** | ✅ Complete | BM25, Vector, RRF fusion, weighted fusion |
+| **Day 5: Caching Layer & Async Tasks** | ❌ Not Started | Redis caching planned |
+| **Day 6: Agentic RAG (LangGraph)** | ❌ Not Started | Agentic features planned |
+| **Day 7: Observability & Testing** | ❌ Not Started | Langfuse integration planned |
+
+---
+
 ## Implementation Phases (7 Days)
 
 ### Day 1: Infrastructure & FastAPI Setup
@@ -281,17 +295,18 @@ services:
 
 ## Expected Outcomes
 
-| Metric | Current | After Implementation |
-|--------|---------|---------------------|
-| **Max document size** | ~100 pages | 10,000+ pages |
-| **Search quality** | Basic vector | Hybrid (BM25 + Vector) |
-| **Response time** | 5-10s | <3s (with cache) |
-| **API costs** | Full price | 50%+ reduction (cache) |
-| **Observability** | None | Full tracing (Langfuse) |
-| **Rate limiting** | None | Built-in |
-| **Async processing** | None | Celery tasks |
-| **File storage** | Local | S3-compatible |
-| **Cloud-ready** | No | Yes |
+| Metric | V1 (frozen) | V2 MVP (Current) | After Full Implementation |
+|--------|-------------|------------------|-------------------------|
+| **Max document size** | ~100 pages | 10,000+ pages | 10,000+ pages |
+| **Search quality** | ChromaDB vector | Hybrid (BM25 + Vector) | Hybrid (BM25 + Vector) |
+| **Response time** | 5-10s | <3s | <3s (with cache) |
+| **LLM Provider** | LiteLLM | Gemini + Groq | Gemini + Groq |
+| **API costs** | Full price | Pay per call | 50%+ reduction (cache) |
+| **Observability** | None | None | Full tracing (Langfuse) |
+| **Rate limiting** | None | None | Built-in |
+| **Async processing** | None | None | Celery tasks |
+| **File storage** | Local | Local + S3 ready | S3-compatible |
+| **Cloud-ready** | No | Partial | Yes |
 
 ---
 
