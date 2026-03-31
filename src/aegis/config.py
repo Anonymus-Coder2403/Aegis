@@ -1,12 +1,13 @@
-import os
 from pathlib import Path
-from typing import Optional
 
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     gemini_api_key: str = ""
+    groq_api_key: str = ""
+
+    llm_provider: str = "gemini"  # "gemini" or "groq"
 
     database_url: str = "postgresql://aegis:aegis@localhost:5432/aegis"
 
@@ -39,10 +40,16 @@ class Settings(BaseSettings):
     llm_max_tokens: int = 2048
     llm_temperature: float = 0.7
 
+    groq_model: str = "openai/gpt-oss-120b"
+
+    context7_api_key: str = ""
+    mcp_enabled: bool = False
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"
 
 
 def get_settings() -> Settings:

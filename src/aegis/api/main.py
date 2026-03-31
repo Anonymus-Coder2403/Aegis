@@ -1,4 +1,5 @@
 import io
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -9,18 +10,34 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .routers.ingest import ChunkingStrategy
-from ..chunking.base import ChunkingConfig
-from ..chunking.pdf_chunker import PDFChunker
-from ..chunking.pdf_chunker import PDFProcessor
-from ..chunking.recursive_chunker import RecursiveChunker
-from ..chunking.section_chunker import SectionChunker
-from ..config import settings
-from ..services.llm.gemini import get_llm
-from ..services.search.bm25 import BM25Search
-from ..services.search.hybrid import rrf_fusion, weighted_fusion
-from ..services.search.vector import VectorSearch
-from ..services.storage.s3_client import LocalStorageClient, S3Client
+if __package__ in {None, ""}:
+    sys.path.append(str(Path(__file__).resolve().parents[2]))
+
+    from aegis.api.routers.ingest import ChunkingStrategy
+    from aegis.chunking.base import ChunkingConfig
+    from aegis.chunking.pdf_chunker import PDFChunker
+    from aegis.chunking.pdf_chunker import PDFProcessor
+    from aegis.chunking.recursive_chunker import RecursiveChunker
+    from aegis.chunking.section_chunker import SectionChunker
+    from aegis.config import settings
+    from aegis.services.llm.gemini import get_llm_provider
+    from aegis.services.search.bm25 import BM25Search
+    from aegis.services.search.hybrid import rrf_fusion, weighted_fusion
+    from aegis.services.search.vector import VectorSearch
+    from aegis.services.storage.s3_client import LocalStorageClient, S3Client
+else:
+    from .routers.ingest import ChunkingStrategy
+    from ..chunking.base import ChunkingConfig
+    from ..chunking.pdf_chunker import PDFChunker
+    from ..chunking.pdf_chunker import PDFProcessor
+    from ..chunking.recursive_chunker import RecursiveChunker
+    from ..chunking.section_chunker import SectionChunker
+    from ..config import settings
+    from ..services.llm.gemini import get_llm_provider
+    from ..services.search.bm25 import BM25Search
+    from ..services.search.hybrid import rrf_fusion, weighted_fusion
+    from ..services.search.vector import VectorSearch
+    from ..services.storage.s3_client import LocalStorageClient, S3Client
 
 
 STORAGE_PATH = Path("./storage")
@@ -35,7 +52,11 @@ class InMemoryRAG:
         self.chunks: list[dict[str, Any]] = []
         self.bm25 = BM25Search()
         self.vector = VectorSearch()
-        self.llm = get_llm(use_mock=not settings.gemini_api_key)
+
+        use_mock = not (settings.gemini_api_key or settings.groq_api_key)
+        self.llm = get_llm_provider(use_mock=use_mock)
+
+        self.llm_provider = settings.llm_provider
 
     def add_document(self, doc_id: str, filename: str, chunks: list[str]) -> None:
         self.documents[doc_id] = {
@@ -101,7 +122,9 @@ class InMemoryRAG:
 
         return results
 
-    def generate_answer(self, query: str, context_results: list[dict[str, Any]]) -> str:
+    async def generate_answer(
+        self, query: str, context_results: list[dict[str, Any]]
+    ) -> str:
         if not context_results:
             return "No relevant documents found to answer your question."
 
@@ -123,10 +146,16 @@ Question: {query}
 Answer:"""
 
         try:
-            response = self.llm.generate(
-                prompt=prompt,
-                system_prompt=system_prompt,
-            )
+            if self.llm_provider == "groq":
+                response = await self.llm.generate_async(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                )
+            else:
+                response = self.llm.generate(
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                )
             return response.text
         except Exception as e:
             return f"Error generating answer: {str(e)}"
@@ -151,9 +180,7 @@ def _build_chunker(chunking_strategy: str):
     )
 
 
-def _extract_chunks(
-    content: bytes, filename: str, chunking_strategy: str
-) -> list[str]:
+def _extract_chunks(content: bytes, filename: str, chunking_strategy: str) -> list[str]:
     suffix = Path(filename).suffix.lower()
 
     if suffix == ".pdf" or chunking_strategy == "pdf":
@@ -209,9 +236,14 @@ def _resolve_test_document(filename: str) -> Path:
 async def lifespan(app: FastAPI):
     print(f"Aegis RAG API starting...")
     print(f"Storage mode: {settings.storage_mode}")
-    print(
-        f"LLM: {'Mock (no API key)' if not settings.gemini_api_key else settings.llm_model}"
-    )
+
+    if settings.llm_provider == "groq" and settings.groq_api_key:
+        print(f"LLM Provider: Groq ({settings.groq_model})")
+    elif settings.gemini_api_key:
+        print(f"LLM Provider: Gemini ({settings.llm_model})")
+    else:
+        print(f"LLM: Mock (no API key configured)")
+
     yield
     print("Aegis RAG API shutting down...")
 
@@ -247,12 +279,19 @@ class QueryResponse(BaseModel):
 
 @app.get("/health")
 async def health_check():
+    model_info = "mock"
+    if settings.llm_provider == "groq" and settings.groq_api_key:
+        model_info = settings.groq_model
+    elif settings.gemini_api_key:
+        model_info = settings.llm_model
+
     return {
         "status": "healthy",
         "version": "2.0.0",
         "documents": len(rag.documents),
         "chunks": len(rag.chunks),
-        "llm": "mock" if not settings.gemini_api_key else settings.llm_model,
+        "llm_provider": settings.llm_provider,
+        "llm_model": model_info,
     }
 
 
@@ -365,8 +404,8 @@ async def query_document(request: QueryRequest):
             query=request.query,
         )
 
-    if request.use_llm and settings.gemini_api_key:
-        answer = rag.generate_answer(request.query, results)
+    if request.use_llm and (settings.gemini_api_key or settings.groq_api_key):
+        answer = await rag.generate_answer(request.query, results)
     else:
         best_chunk = results[0]["text"] if results else ""
         answer = f"Best match: {best_chunk[:500]}..."
