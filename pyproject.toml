@@ -1,5 +1,5 @@
 [project]
-name = "aegis-billing-rag"
+name = "aegis"
 version = "0.1.0"
 description = "Billing and RAG slice for Aegis smart home assistant"
 readme = "README.md"
@@ -30,6 +30,11 @@ aegis-ui = "aegis.ui.streamlit_app:main"
 [dependency-groups]
 dev = [
     "pytest",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: real API integration tests (skip with '-m \"not integration\"')",
 ]
 
 [build-system]

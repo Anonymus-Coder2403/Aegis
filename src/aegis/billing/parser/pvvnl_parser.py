@@ -9,6 +9,26 @@ from aegis.billing.parser.extractors import ExtractedBillContent
 from aegis.billing.parser.normalize import clean_cell, parse_amount, parse_date
 from aegis.billing.types import BillAmounts, BillConsumption, CanonicalBill
 
+_PVVNL_INDICATORS = [
+    "PVVNL",
+    "Paschimanchal Vidyut Vitran Nigam",
+    "PUVVNL",
+    "Purvanchal Vidyut Vitran",
+    "DVVNL",
+    "Dakshinanchal Vidyut Vitran",
+    "MVVNL",
+    "Madhyanchal Vidyut Vitran",
+    "Bill Due Date",
+    "Current Payable Amount",
+    "Rounded Payable",
+]
+
+
+def can_parse_pvvnl(raw_text: str) -> bool:
+    """Return True if the text looks like a PVVNL/UP-DISCOM electricity bill."""
+    text_upper = raw_text.upper()
+    return any(indicator.upper() in text_upper for indicator in _PVVNL_INDICATORS)
+
 
 def parse_pvvnl_bill(extracted: ExtractedBillContent) -> CanonicalBill:
     rows = _flatten_rows(extracted.tables)

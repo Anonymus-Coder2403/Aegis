@@ -57,7 +57,7 @@ def format_grounded_answer(
         response = completion(
             model=config.litellm_model,
             api_key=config.litellm_api_key,
-            api_base=config.litellm_base_url,
+            base_url=config.litellm_base_url,
             temperature=0,
             max_tokens=500,
             messages=[

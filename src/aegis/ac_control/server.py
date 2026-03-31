@@ -29,4 +29,4 @@ def get_status() -> dict:
 
 def run_server() -> None:
     """Entry point for ``aegis-ac-server`` console script."""
-    uvicorn.run("aegis.ac_control.server:app", host="0.0.0.0", port=8765, reload=False)
+    uvicorn.run("aegis.ac_control.server:app", host="127.0.0.1", port=8765, reload=False)

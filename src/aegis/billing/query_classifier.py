@@ -23,6 +23,56 @@ def classify_billing_query(question: str) -> BillingQueryIntent:
             needs_semantic_fallback=False,
         )
 
+    # --- Multi-word phrase rules (most specific first) ---
+
+    if "receipt number" in normalized or "receipt no" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["amounts.last_receipt_no"],
+            needs_semantic_fallback=False,
+        )
+
+    if "bill number" in normalized or "bill no" in normalized or "bill id" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["bill_id"],
+            needs_semantic_fallback=False,
+        )
+
+    if (
+        "account number" in normalized
+        or "account no" in normalized
+        or "consumer number" in normalized
+        or "consumer no" in normalized
+    ):
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["account_no"],
+            needs_semantic_fallback=False,
+        )
+
+    if "rounded payable" in normalized or "total payable" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["amounts.total_payable_rounded"],
+            needs_semantic_fallback=False,
+        )
+
+    if (
+        "payable by due" in normalized
+        or "by due date" in normalized
+        or "if paid" in normalized
+        or "before due" in normalized
+        or "pay by" in normalized
+    ):
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["amounts.payable_by_due_date"],
+            needs_semantic_fallback=False,
+        )
+
+    # --- Two-keyword combination rules ---
+
     if "last" in normalized and "paid" in normalized:
         return BillingQueryIntent(
             query_type="exact_field_lookup",
@@ -33,6 +83,32 @@ def classify_billing_query(question: str) -> BillingQueryIntent:
             needs_semantic_fallback=False,
         )
 
+    if "last" in normalized and "receipt" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=[
+                "amounts.last_receipt_no",
+                "amounts.last_payment_date",
+            ],
+            needs_semantic_fallback=False,
+        )
+
+    # --- Single-phrase and keyword rules ---
+
+    if "bill month" in normalized or "billing period" in normalized or "which month" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["bill_month"],
+            needs_semantic_fallback=False,
+        )
+
+    if "bill date" in normalized or "issued on" in normalized or "generated on" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["bill_date"],
+            needs_semantic_fallback=False,
+        )
+
     if "due date" in normalized:
         return BillingQueryIntent(
             query_type="exact_field_lookup",
@@ -40,12 +116,35 @@ def classify_billing_query(question: str) -> BillingQueryIntent:
             needs_semantic_fallback=False,
         )
 
-    if "rounded payable" in normalized:
+    if "disconnection" in normalized or "cut off" in normalized or "supply cut" in normalized:
         return BillingQueryIntent(
             query_type="exact_field_lookup",
-            field_paths=["amounts.total_payable_rounded"],
+            field_paths=["disconnection_date"],
             needs_semantic_fallback=False,
         )
+
+    if "arrears" in normalized or "outstanding" in normalized or "overdue" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["amounts.arrears_total"],
+            needs_semantic_fallback=False,
+        )
+
+    if "current payable" in normalized or "owe" in normalized or "total amount" in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["amounts.current_payable"],
+            needs_semantic_fallback=False,
+        )
+
+    if "how much" in normalized and "last" not in normalized:
+        return BillingQueryIntent(
+            query_type="exact_field_lookup",
+            field_paths=["amounts.current_payable"],
+            needs_semantic_fallback=False,
+        )
+
+    # --- Category rules (charge breakdown, history) ---
 
     if "charge" in normalized or "duty" in normalized or "lpsc" in normalized:
         return BillingQueryIntent(
@@ -63,6 +162,7 @@ def classify_billing_query(question: str) -> BillingQueryIntent:
         "history" in normalized
         or "consumption" in normalized
         or "previous month" in normalized
+        or "units" in normalized
     ):
         return BillingQueryIntent(
             query_type="history_lookup",

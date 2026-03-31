@@ -25,10 +25,14 @@ _SYSTEM_PROMPT = (
 def _keyword_fallback(text: str) -> str:
     lower = text.lower()
     words = set(re.findall(r"\w+", lower))
-    if words & _TURN_ON_KEYWORDS:
-        return "turn_on"
-    if words & _TURN_OFF_KEYWORDS:
+    on_score = len(words & _TURN_ON_KEYWORDS)
+    off_score = len(words & _TURN_OFF_KEYWORDS)
+    # Explicit off/stop signals win on ties — ambient conditions (hot/warm)
+    # should not override direct commands (off/stop/turn off).
+    if off_score >= on_score and off_score > 0:
         return "turn_off"
+    if on_score > 0:
+        return "turn_on"
     return "none"
 
 

@@ -77,6 +77,9 @@ def retrieve_document_snippets(
     )
 
 
+_DISTANCE_THRESHOLD = 1.0  # L2 distance; above this = semantically unrelated
+
+
 def _query_collection(
     collection_name: str,
     query_text: str,
@@ -113,8 +116,16 @@ def _query_collection(
 
     snippets: list[dict[str, Any]] = []
     for index, document in enumerate(documents):
-        metadata = metadatas[index] if index < len(metadatas) else {}
         distance = distances[index] if index < len(distances) else None
+        if distance is not None and distance > _DISTANCE_THRESHOLD:
+            LOGGER.debug(
+                "Skipping chunk (distance=%.3f > threshold=%.1f) for collection='%s'",
+                distance,
+                _DISTANCE_THRESHOLD,
+                collection_name,
+            )
+            continue
+        metadata = metadatas[index] if index < len(metadatas) else {}
         snippets.append(
             {
                 "document": document,

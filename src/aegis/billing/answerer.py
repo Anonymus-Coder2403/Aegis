@@ -9,7 +9,7 @@ from aegis.billing.config import BillingConfig
 from aegis.billing.llm_formatter import format_grounded_answer
 from aegis.billing.parser import extractors
 from aegis.billing.parser.msedcl_parser import can_parse_msedcl, parse_msedcl_bill
-from aegis.billing.parser.pvvnl_parser import parse_pvvnl_bill
+from aegis.billing.parser.pvvnl_parser import can_parse_pvvnl, parse_pvvnl_bill
 from aegis.billing.query_classifier import classify_billing_query
 from aegis.billing.rag.retriever import (
     lookup_exact_fields,
@@ -35,13 +35,28 @@ def _parse_bill(extracted: extractors.ExtractedBillContent) -> CanonicalBill:
     """Auto-detect bill format and parse with the appropriate parser."""
     if can_parse_msedcl(extracted.raw_text):
         return parse_msedcl_bill(extracted)
-    return parse_pvvnl_bill(extracted)
+    if can_parse_pvvnl(extracted.raw_text):
+        return parse_pvvnl_bill(extracted)
+    raise ValueError(
+        "Unsupported bill format: the PDF does not appear to be a PVVNL or MSEDCL "
+        "electricity bill. Only PVVNL (UP-DISCOM) and MSEDCL formats are supported."
+    )
 
 
-def ingest_bill(pdf_path: str | Path, config: BillingConfig) -> CanonicalBill:
+def ingest_bill(
+    pdf_path: str | Path,
+    config: BillingConfig,
+    force_reingest: bool = False,
+) -> CanonicalBill:
+    source_doc_id = Path(pdf_path).stem
+    store = BillingStore(config)
+    if not force_reingest:
+        cached = store.load_bill(source_doc_id)
+        if cached is not None:
+            return cached
     extracted = extractors.extract_pdf_content(pdf_path)
     bill = _parse_bill(extracted)
-    BillingStore(config).upsert_bill(bill)
+    store.upsert_bill(bill)
     return bill
 
 

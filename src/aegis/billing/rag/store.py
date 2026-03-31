@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from dataclasses import asdict
 import json
+import logging
 from typing import Any
 
 from aegis.billing.config import BillingConfig
 from aegis.billing.rag.embeddings import embed_text
 from aegis.billing.types import BillAmounts, BillConsumption, CanonicalBill
+
+LOGGER = logging.getLogger(__name__)
 
 _RAW_TEXT_CHUNK_SIZE = 500
 _RAW_TEXT_OVERLAP = 50
@@ -123,31 +126,63 @@ class BillingStore:
 
         chunks = _build_field_chunks(bill)
         if chunks:
-            fields.upsert(
-                ids=[c["id"] for c in chunks],
-                documents=[c["text"] for c in chunks],
-                metadatas=[c["metadata"] for c in chunks],
-                embeddings=[embed_text(c["text"]) for c in chunks],
-            )
+            try:
+                fields.upsert(
+                    ids=[c["id"] for c in chunks],
+                    documents=[c["text"] for c in chunks],
+                    metadatas=[c["metadata"] for c in chunks],
+                    embeddings=[embed_text(c["text"]) for c in chunks],
+                )
+            except Exception:
+                LOGGER.warning(
+                    "bill_fields upsert failed for source_doc_id='%s'; "
+                    "canonical JSON is saved but vector index may be incomplete.",
+                    bill.source_doc_id,
+                    exc_info=True,
+                )
 
         for key, value in bill.charges.items():
             if value is None:
                 continue
-            charges.upsert(
-                ids=[f"{bill.source_doc_id}:{key}"],
-                documents=[f"{key}: {value}"],
-                metadatas=[{"source_doc_id": bill.source_doc_id, "charge_type": key}],
-                embeddings=[embed_text(f"{key}: {value}")],
-            )
+            try:
+                charges.upsert(
+                    ids=[f"{bill.source_doc_id}:{key}"],
+                    documents=[f"{key}: {value}"],
+                    metadatas=[{"source_doc_id": bill.source_doc_id, "charge_type": key}],
+                    embeddings=[embed_text(f"{key}: {value}")],
+                )
+            except Exception:
+                LOGGER.warning(
+                    "bill_charges upsert failed for key='%s' source_doc_id='%s'.",
+                    key,
+                    bill.source_doc_id,
+                    exc_info=True,
+                )
 
         for index, row in enumerate(bill.history):
             row_text = json.dumps(row, ensure_ascii=False)
-            history.upsert(
-                ids=[f"{bill.source_doc_id}:history:{index}"],
-                documents=[row_text],
-                metadatas=[{"source_doc_id": bill.source_doc_id}],
-                embeddings=[embed_text(row_text)],
-            )
+            try:
+                history.upsert(
+                    ids=[f"{bill.source_doc_id}:history:{index}"],
+                    documents=[row_text],
+                    metadatas=[{"source_doc_id": bill.source_doc_id}],
+                    embeddings=[embed_text(row_text)],
+                )
+            except Exception:
+                LOGGER.warning(
+                    "bill_history upsert failed for index=%d source_doc_id='%s'.",
+                    index,
+                    bill.source_doc_id,
+                    exc_info=True,
+                )
+
+    def load_bill(self, source_doc_id: str) -> CanonicalBill | None:
+        """Return a previously ingested bill by source_doc_id, or None if not found."""
+        canonical_path = self.config.canonical_dir / f"{source_doc_id}.json"
+        if not canonical_path.exists():
+            return None
+        payload = json.loads(canonical_path.read_text(encoding="utf-8"))
+        return _canonical_bill_from_dict(payload)
 
     def load_latest_bill(self) -> CanonicalBill | None:
         files = sorted(self.config.canonical_dir.glob("*.json"))

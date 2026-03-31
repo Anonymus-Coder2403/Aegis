@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
 from aegis.core.config import AegisConfig
+
+LOGGER = logging.getLogger(__name__)
 
 _WEATHER_KEYWORDS = {"weather", "umbrella", "rain", "temperature", "temp", "humid", "forecast", "sunny", "cloudy"}
 _AC_KEYWORDS = {"ac", "air condition", "air conditioning", "aircon", "hot", "cold", "cool", "warm", "stuffy", "freezing"}
@@ -56,7 +59,7 @@ def _route_via_litellm(question: str, config: AegisConfig) -> str:
         if category in {"weather", "ac", "billing"}:
             return category
     except Exception:
-        pass
+        LOGGER.warning("LiteLLM routing classification failed", exc_info=True)
     return "none"
 
 
