@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+.env
+storage/
+.ruff_cache/
+venv/Lib/site-packages/torch/lib/torch_cpu.dll
